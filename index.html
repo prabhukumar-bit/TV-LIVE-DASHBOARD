@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Google Sheet Live Dashboard</title>
+  <style>
+    /* Full-screen layout */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h2 {
+      text-align: center;
+      margin: 10px 0;
+      font-size: 3vh; /* heading scales with screen */
+    }
+
+    /* Container takes remaining screen with padding for gap */
+    #report-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      padding: 20px; /* GAP from edges */
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    /* Table fills container but leaves some space */
+    table {
+      width: 100%;
+      height: 100%;
+      max-width: 95%;  /* keeps small gap on sides */
+      max-height: 95%; /* keeps small gap top/bottom */
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    td, th {
+      border: 5px solid #000;
+      text-align: center;
+      vertical-align: middle;
+      padding: 8px;
+      /* font-size set dynamically */
+    }
+
+    th {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+
+<div id="report-container">Loading...</div>
+
+<script>
+  const SHEET_ID = "1QS69ZNqIehztWHNQR1NDnCzMXOFEPTcgSwQARmRzZig";
+  const API_KEY = "AIzaSyBw2ua8ipnTs6bGZ2o2CwMbv6ngP5Pl12w";
+
+  const RANGES = [
+    "JFM!N17:O20"  ,   // Slide 1
+    "JFM!A136:C142",   // Slide 2
+    "JFM!A127:D133",   // Slide 3
+    "JFM!A144:D150"    // Slide 4
+  ];
+
+  let currentSlide = 0;
+
+  // Parse range to get start row/col
+  function parseRange(range) {
+    const [, cells] = range.split("!");
+    const [start] = cells.split(":");
+    const colLetters = start.match(/[A-Z]+/)[0];
+    const rowNumber = parseInt(start.match(/\d+/)[0], 10);
+    const startCol = colLetters.split("").reduce((sum, c) => sum * 26 + (c.charCodeAt(0) - 64), 0) - 1;
+    return { startRow: rowNumber - 1, startCol };
+  }
+
+  // Build Sheets API URL
+  function buildURL(range) {
+    return (
+      "https://sheets.googleapis.com/v4/spreadsheets/" + SHEET_ID +
+      "?ranges=" + encodeURIComponent(range) +
+      "&includeGridData=true" +
+      "&fields=sheets.data.rowData.values(formattedValue,userEnteredFormat),sheets.merges" +
+      "&key=" + API_KEY
+    );
+  }
+
+  async function fetchSheetData(range) {
+    const res = await fetch(buildURL(range));
+    const data = await res.json();
+    if (!res.ok) throw new Error(JSON.stringify(data));
+    return {
+      rows: data.sheets?.[0]?.data?.[0]?.rowData || [],
+      merges: data.sheets?.[0]?.merges || []
+    };
+  }
+
+  function applyStyles(td, format) {
+    if (!format) return;
+    if (format.backgroundColor) {
+      const c = format.backgroundColor;
+      td.style.backgroundColor =
+        `rgb(${(c.red || 0) * 255}, ${(c.green || 0) * 255}, ${(c.blue || 0) * 255})`;
+    }
+    if (format.textFormat?.bold) td.style.fontWeight = "bold";
+  }
+
+  function getMergeInfo(merges, row, col, offset) {
+    const absRow = row + offset.startRow;
+    const absCol = col + offset.startCol;
+    for (const m of merges) {
+      if (absRow === m.startRowIndex && absCol === m.startColumnIndex) {
+        return {
+          rowspan: m.endRowIndex - m.startRowIndex,
+          colspan: m.endColumnIndex - m.startColumnIndex
+        };
+      }
+      if (
+        absRow >= m.startRowIndex &&
+        absRow < m.endRowIndex &&
+        absCol >= m.startColumnIndex &&
+        absCol < m.endColumnIndex
+      ) {
+        return "SKIP";
+      }
+    }
+    return null;
+  }
+
+  // Adjust font size dynamically based on container height and rows
+  function adjustFontSize() {
+    const container = document.getElementById("report-container");
+    const table = container.querySelector("table");
+    if (!table) return;
+
+    const rows = table.rows.length;
+    if (rows === 0) return;
+
+    // Estimate font size to fill table height with some margin
+    const fontSize = Math.floor(container.clientHeight / rows * 0.6); // 60% of row height
+    table.style.fontSize = fontSize + "px";
+  }
+
+  function renderTable(rows, merges, offset) {
+    const container = document.getElementById("report-container");
+    container.innerHTML = "";
+
+    const table = document.createElement("table");
+
+    rows.forEach((row, rIndex) => {
+      const tr = document.createElement("tr");
+      const cells = row.values || [];
+
+      cells.forEach((cell, cIndex) => {
+        const merge = getMergeInfo(merges, rIndex, cIndex, offset);
+        if (merge === "SKIP") return;
+
+        const td = document.createElement("td");
+        td.innerText = cell?.formattedValue || "";
+
+        if (merge) {
+          td.rowSpan = merge.rowspan;
+          td.colSpan = merge.colspan;
+        }
+
+        applyStyles(td, cell?.userEnteredFormat);
+        tr.appendChild(td);
+      });
+
+      table.appendChild(tr);
+    });
+
+    container.appendChild(table);
+    adjustFontSize(); // dynamically adjust font
+  }
+
+  async function loadSlide() {
+    try {
+      const range = RANGES[currentSlide];
+      const offset = parseRange(range);
+      const { rows, merges } = await fetchSheetData(range);
+      renderTable(rows, merges, offset);
+      currentSlide = (currentSlide + 1) % RANGES.length;
+    } catch (e) {
+      document.getElementById("report-container").innerText = "Error loading data";
+      console.error(e);
+    }
+  }
+
+  loadSlide();
+  setInterval(loadSlide, 5000);
+</script>
+
+</body>
+</html>
