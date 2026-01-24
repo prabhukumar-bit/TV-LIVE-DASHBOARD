@@ -137,7 +137,9 @@ const RANGES = [
   "JFM!A144:D150",
   "JFM!J16:K20",
   "JFM!A66:C88",
-  "JFM!J8:M14"
+  "JFM!J2:N7",
+  "JFM!J8:M14",
+  "JFM!C28:G48"
 ];
 
 let currentSlide = 0;
@@ -215,7 +217,7 @@ function adjustFontSize() {
   const table = container.querySelector("table");
   if (!table) return;
   const rows = table.rows.length;
-  table.style.fontSize = Math.floor(container.clientHeight / rows * 0.55) + "px";
+  table.style.fontSize = Math.floor(container.clientHeight / rows * 0.45) + "px";
 }
 
 function renderTable(rows, merges, offset) {
@@ -308,4 +310,3 @@ startSlideShow();
 
 </body>
 </html>
-
