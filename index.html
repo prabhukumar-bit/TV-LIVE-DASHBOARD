@@ -30,8 +30,8 @@ html, body {
 
 .particle {
   position: absolute;
-  width: 4px;
-  height: 4px;
+  width: 25px;      /* aur bada size */
+  height: 25px;     /* aur bada size */
   background: rgba(255, 255, 255, 0.6);
   border-radius: 50%;
   animation: floatParticle linear infinite;
@@ -66,8 +66,8 @@ html, body {
 
 #controls button {
   margin: 0 14px;
-  padding: 12px 0;             /* Remove horizontal padding */
-  width: 130px;                /* Fixed width for all buttons */
+  padding: 12px 0;
+  width: 130px;
   font-size: 20px;
   font-weight: bold;
   border-radius: 14px;
@@ -183,10 +183,10 @@ for(let i=0;i<particleCount;i++){
   p.className = "particle";
   p.style.left = Math.random()*100 + "vw";
   p.style.top = Math.random()*100 + "vh";
-  p.style.width = 2 + Math.random()*4 + "px";
+  p.style.width = 30 + Math.random()*25 + "px";   // 20–35px
   p.style.height = p.style.width;
   p.style.animationDuration = 10 + Math.random()*20 + "s";
-  p.style.opacity = 0.3 + Math.random()*0.7;
+  p.style.opacity = 0.7 + Math.random()*0.3;     // 0.7–1
   particlesContainer.appendChild(p);
 }
 
